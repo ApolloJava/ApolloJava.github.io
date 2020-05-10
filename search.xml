@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  <entry>
+    <title>浅谈JVM</title>
+    <url>/2020/04/14/JVM-JVM/</url>
+    <content><![CDATA[<h1 id="JVM"><a href="#JVM" class="headerlink" title="JVM"></a>JVM</h1><h2 id="基本概念"><a href="#基本概念" class="headerlink" title="基本概念"></a>基本概念</h2><p> JVM是一个可以运行Java代码的虚拟机，虽然是运行在操作系统之上，但是它与硬件没有直接的交互。<br> <a id="more"></a></p>
+<h2 id="运行过程（Java）"><a href="#运行过程（Java）" class="headerlink" title="运行过程（Java）"></a>运行过程（Java）</h2><p>我们都知道Java源文件通过编译器，能够产生响应的.class文件，也就是字节码文件，而字节码文件又通过Java虚拟机的解释器，编译成特定机器上的机器码。</p>
+<p><strong>流程如下：</strong><br>①Java源文件–》编译器–》字节码文件<br>②字节码文件–》JVM–》机器码</p>
+<h1 id="1、线程"><a href="#1、线程" class="headerlink" title="1、线程"></a>1、线程</h1><p>这里说的线程是指程序执行过程中的一个线程实体，JVM允许一个应用并发执行多个线程。当线程本地存储、缓冲区分配、同步对象、栈、程序计数器等准备好以后，就会创建一个操作系统原生线程。Java 线程结束，原生线程随之被回收。操作系统负责调度所有线程，并把它们分配到任何可用的CPU 上。当原生线程初始化完毕，就会调用Java 线程的run() 方法。当线程结束时，会释放原生线程和Java 线程的所有资源。</p>
+<h1 id="2、JVM内存区域"><a href="#2、JVM内存区域" class="headerlink" title="2、JVM内存区域"></a>2、JVM内存区域</h1><h2 id="2-1-五大区域"><a href="#2-1-五大区域" class="headerlink" title="2.1 五大区域"></a>2.1 五大区域</h2><p>JVM在执行Java程序过程中会把他所管理的内存分为若干个不同的数据区域，运行时数据区主要分为线程私有区域【程序计数器、虚拟机栈、本地方法栈】、线程共享区【方法区、Java堆】、直接内存。</p>
+<ul>
+<li>程序计数器  Program Counter Register</li>
+<li>虚拟机栈 VM Stack</li>
+<li>本地方法栈 Native Method Stack</li>
+<li>方法区 Method Area</li>
+<li>堆 Heap</li>
+</ul>
+<p>线程私有数据区域生命周期与线程相同，依赖用户线程的启动/结束而创建/销毁，每个线程都与操作系统的本地线程直接映射，因此这部分内存区域的存/否跟随本地线程的生/死对应</p>
+<p>线程共享区域跟随虚拟机的启动/关闭而创建/销毁。</p>
+<p>直接内存并不是JVM运行时数据区的一部分，但也会被频繁使用: 在JDK 1.4引入的NIO提供了基于Channel与Buffer的IO方式, 它可以使用Native函数库直接分配堆外内存, 然后使用DirectByteBuffer对象作为这块内存的引用进行操作(详见:Java I/O 扩展), 这样就避免了在Java 堆和Native堆中来回复制数据, 因此在一些场景中可以显著提高性能。</p>
+<h3 id="2-1-1-程序计数器（线程私有）"><a href="#2-1-1-程序计数器（线程私有）" class="headerlink" title="2.1.1  程序计数器（线程私有）"></a>2.1.1  程序计数器（线程私有）</h3><p>可以看做当前线程所执行的字节码文件（class）的行号指示器，会记录执行痕迹。</p>
+<p><strong>特点：</strong></p>
+<ul>
+<li>线程私有</li>
+<li>JVM规范中唯一没有规定OutOfMemoryError情况的区域</li>
+<li>如果正在执行的是Native 方法，则这个计数器值为空</li>
+</ul>
+<h3 id="2-1-2-虚拟机栈（线程私有）"><a href="#2-1-2-虚拟机栈（线程私有）" class="headerlink" title="2.1.2 虚拟机栈（线程私有）"></a>2.1.2 虚拟机栈（线程私有）</h3><p>是描述Java方法执行的内存模型，运行时会被创建，生命周期与线程相同，存储声明的变量。</p>
+<p><strong>特点：</strong></p>
+<ul>
+<li>虚拟机栈是线程隔离的，即每个线程都有自己独立的虚拟机栈</li>
+</ul>
+<h3 id="2-1-3-本地方法栈（线程私有）"><a href="#2-1-3-本地方法栈（线程私有）" class="headerlink" title="2.1.3 本地方法栈（线程私有）"></a>2.1.3 本地方法栈（线程私有）</h3><p>本地方法栈的功能和特点类似于虚拟机栈，均具有线程隔离的特点，区别在于虚拟机栈为执行Java方法服务，而本地方发展则为Native方法服务。</p>
+<h3 id="2-1-4-方法区（线程共享）"><a href="#2-1-4-方法区（线程共享）" class="headerlink" title="2.1.4 方法区（线程共享）"></a>2.1.4 方法区（线程共享）</h3><p>主要存储被JVM加载的类信息、常量、静态变量、即时编译器编译后的代码等数据，被线程共享，很少发生垃圾回收。由于现代VM采用分代收集算法，因此Java堆从GC的角度还可以细分为：新生代和老年代。（jdk1.8后移除永久代，被元空间的区域取代，后面会介绍）</p>
+<h3 id="2-1-5-堆（线程共享）"><a href="#2-1-5-堆（线程共享）" class="headerlink" title="2.1.5 堆（线程共享）"></a>2.1.5 堆（线程共享）</h3><p>是所有线程共享的一块内存，创建的对象和数组都保存在Java堆内存中，也是垃圾收集器进行垃圾收集的最重要内存区域，所以经常发生垃圾回收操作。</p>
+<h1 id="3、JVM运行时内存"><a href="#3、JVM运行时内存" class="headerlink" title="3、JVM运行时内存"></a>3、JVM运行时内存</h1><p>Java堆从GC的角度还可以细分为新生代（Eden区、Survivor区（分为From 和To））和老年代。<br><img src="https://img-blog.csdnimg.cn/20200415173655978.png" alt="在这里插入图片描述"></p>
+<h2 id="3-1-新生代"><a href="#3-1-新生代" class="headerlink" title="3.1 新生代"></a>3.1 新生代</h2><p>是用来存放新生的对象，一般占堆的1/3空间，由于频繁创建对象，所以新生代会频繁触发MinorGC进行垃圾回收。<br>新生代又分Eden、SevivorFrom、SevivorTo三个区。</p>
+<h3 id="3-1-1-Eden"><a href="#3-1-1-Eden" class="headerlink" title="3.1.1 Eden"></a>3.1.1 Eden</h3><p>Java新对象的出生地（如果新创建的对象占用内存很大，则直接分配到老年代）。当Eden区内存不够的时候就会触发MinorGC，对新生代进行一次垃圾回收。</p>
+<h3 id="3-1-2-Servivor-From"><a href="#3-1-2-Servivor-From" class="headerlink" title="3.1.2 Servivor From"></a>3.1.2 Servivor From</h3><p>上一次GC的幸存者，作为这一次GC的被扫描者。</p>
+<h3 id="3-1-3-Servivor-To"><a href="#3-1-3-Servivor-To" class="headerlink" title="3.1.3 Servivor To"></a>3.1.3 Servivor To</h3><p>保留了一次MinorGC过程中的幸存者</p>
+<h3 id="3-1-4-MinorGC的过程（复制-gt-清空-gt-互换）"><a href="#3-1-4-MinorGC的过程（复制-gt-清空-gt-互换）" class="headerlink" title="3.1.4 MinorGC的过程（复制-&gt;清空-&gt;互换）"></a>3.1.4 MinorGC的过程（复制-&gt;清空-&gt;互换）</h3><p>MinorGC采用复制算法</p>
+<p> <strong>1. Eden、ServicorFrom复制到ServicorTo，年龄+1</strong><br>首先，把 Eden 和 ServivorFrom 区域中存活的对象复制到 ServicorTo 区域（如果有对象的年<br>龄以及达到了老年的标准，则赋值到老年代区），同时把这些对象的年龄+1（如果 ServicorTo 不<br>够位置了就放到老年区）；</p>
+<p> <strong>3. 清空Eden、ServicorFrom</strong><br> 然后，清空 Eden 和 ServicorFrom 中的对象；</p>
+<p> <strong>4. ServicorTo和ServicorFrom互换</strong><br>最后，ServicorTo 和 ServicorFrom 互换，原 ServicorTo 成为下一次 GC 时的 ServicorFrom区。</p>
+<h2 id="3-2-老年代"><a href="#3-2-老年代" class="headerlink" title="3.2 老年代"></a>3.2 老年代</h2><p>主要存放应用程序中生命周期长的内存对象。<br> 老年代的对象比较稳定，所以 MajorGC 不会频繁执行。在进行 MajorGC 前一般都先进行<br>了一次 MinorGC，使得有新生代的对象晋身入老年代，导致空间不够用时才触发。当无法找到足<br>够大的连续空间分配给新创建的较大对象时也会提前触发一次 MajorGC 进行垃圾回收腾出空间。<br> MajorGC 采用标记清除算法：首先扫描一次所有老年代，标记出存活的对象，然后回收没<br>有标记的对象。MajorGC 的耗时比较长，因为要扫描再回收。MajorGC 会产生内存碎片，为了减<br>少内存损耗，我们一般需要进行合并或者标记出来方便下次直接分配。当老年代也满了装不下的<br>时候，就会抛出 OOM（Out of Memory）异常。</p>
+<h2 id="3-3-永久代"><a href="#3-3-永久代" class="headerlink" title="3.3 永久代"></a>3.3 永久代</h2><p>指内存的永久保存区域，主要存放 Class 和 Meta（元数据）的信息,Class 在被加载的时候被<br>放入永久区域，它和和存放实例的区域不同,GC 不会在主程序运行期对永久区域进行清理。所以这<br>也导致了永久代的区域会随着加载的 Class 的增多而胀满，最终抛出 OOM 异常。</p>
+<h3 id="3-3-1-Java8与元数据"><a href="#3-3-1-Java8与元数据" class="headerlink" title="3.3.1 Java8与元数据"></a>3.3.1 Java8与元数据</h3><p>在 Java8 中，永久代已经被移除，被一个称为“元数据区”（元空间）的区域所取代。元空间<br>的本质和永久代类似，元空间与永久代之间最大的区别在于：元空间并不在虚拟机中，而是使用<br>本地内存。因此，默认情况下，元空间的大小仅受本地内存限制。类的元数据放入 native<br>memory, 字符串池和类的静态变量放入 java 堆中，这样可以加载多少类的元数据就不再由<br>MaxPermSize 控制, 而由系统的实际可用空间来控制。</p>
+<h1 id="4、垃圾回收与算法"><a href="#4、垃圾回收与算法" class="headerlink" title="4、垃圾回收与算法"></a>4、垃圾回收与算法</h1><h2 id="4-1-如何确定垃圾"><a href="#4-1-如何确定垃圾" class="headerlink" title="4.1 如何确定垃圾"></a>4.1 如何确定垃圾</h2><h3 id="4-1-1-引用计数法"><a href="#4-1-1-引用计数法" class="headerlink" title="4.1.1 引用计数法"></a>4.1.1 引用计数法</h3><p>在 Java 中，引用和对象是有关联的。如果要操作对象则必须用引用进行。因此，很显然一个简单<br>的办法是通过引用计数来判断一个对象是否可以回收。简单说，即一个对象如果没有任何与之关<br>联的引用，即他们的引用计数都不为 0，则说明对象不太可能再被用到，那么这个对象就是可回收<br>对象。</p>
+<h3 id="4-1-2-可达性分析"><a href="#4-1-2-可达性分析" class="headerlink" title="4.1.2 可达性分析"></a>4.1.2 可达性分析</h3><p>为了解决引用计数法的循环引用问题，Java 使用了可达性分析的方法。通过一系列的“GC roots”<br>对象作为起点搜索。如果在“GC roots”和一个对象之间没有可达路径，则称该对象是不可达的。<br>要注意的是，不可达对象不等价于可回收对象，不可达对象变为可回收对象至少要经过两次标记<br>过程。两次标记后仍然是可回收对象，则将面临回收。</p>
+<h2 id="4-2-标记清除算法"><a href="#4-2-标记清除算法" class="headerlink" title="4.2 标记清除算法"></a>4.2 标记清除算法</h2><p>最基础的垃圾回收算法，分为两个阶段，标注和清除。标记阶段标记出所有需要回收的对象，清<br>除阶段回收被标记的对象所占用的空间。如图：<br><img src="https://img-blog.csdnimg.cn/20200510072518739.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3BhbmdfcGluZw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>从图中我们就可以发现，该算法最大的问题是内存碎片化严重，后续可能发生大对象不能找到可<br>利用空间的问题。</p>
+<h2 id="4-3-复制算法"><a href="#4-3-复制算法" class="headerlink" title="4.3 复制算法"></a>4.3 复制算法</h2><p>为了解决 Mark-Sweep 算法内存碎片化的缺陷而被提出的算法。按内存容量将内存划分为等大小<br>的两块。每次只使用其中一块，当这一块内存满后将尚存活的对象复制到另一块上去，把已使用<br>的内存清掉，如图：<br><img src="https://img-blog.csdnimg.cn/20200510072551971.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3BhbmdfcGluZw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>这种算法虽然实现简单，内存效率高，不易产生碎片，但是最大的问题是可用内存被压缩到了原<br>本的一半。且存活对象增多的话，Copying 算法的效率会大大降低。</p>
+<h2 id="4-4-标记整理算法"><a href="#4-4-标记整理算法" class="headerlink" title="4.4 标记整理算法"></a>4.4 标记整理算法</h2><p>结合了以上两个算法，为了避免缺陷而提出。标记阶段和 Mark-Sweep 算法相同，标记后不是清<br>理对象，而是将存活对象移向内存的一端。然后清除端边界外的对象。如图：<br><img src="https://img-blog.csdnimg.cn/20200510072622327.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3BhbmdfcGluZw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h2 id="4-5-分带收集算法"><a href="#4-5-分带收集算法" class="headerlink" title="4.5 分带收集算法"></a>4.5 分带收集算法</h2><p>分代收集法是目前大部分 JVM 所采用的方法，其核心思想是根据对象存活的不同生命周期将内存<br>划分为不同的域，一般情况下将 GC 堆划分为老生代(Tenured/Old Generation)和新生代(Young<br>Generation)。老生代的特点是每次垃圾回收时只有少量对象需要被回收，新生代的特点是每次垃<br>圾回收时都有大量垃圾需要被回收，因此可以根据不同区域选择不同的算法。</p>
+<h3 id="4-5-1-新生代与复制算法"><a href="#4-5-1-新生代与复制算法" class="headerlink" title="4.5.1 新生代与复制算法"></a>4.5.1 新生代与复制算法</h3><p>目前大部分 JVM 的 GC 对于新生代都采取 Copying 算法，因为新生代中每次垃圾回收都要<br>回收大部分对象，即要复制的操作比较少，但通常并不是按照 1：1 来划分新生代。一般将新生代<br>划分为一块较大的 Eden 空间和两个较小的 Survivor 空间(From Space, To Space)，每次使用<br>Eden 空间和其中的一块 Survivor 空间，当进行回收时，将该两块空间中还存活的对象复制到另<br>一块 Survivor 空间中。<br><img src="https://img-blog.csdnimg.cn/20200510072751198.png" alt="在这里插入图片描述"></p>
+<h3 id="4-5-2-老年代与标记复制算法"><a href="#4-5-2-老年代与标记复制算法" class="headerlink" title="4.5.2 老年代与标记复制算法"></a>4.5.2 老年代与标记复制算法</h3><p>而老年代因为每次只回收少量对象，因而采用 Mark-Compact 算法。</p>
+<ol>
+<li>JAVA 虚拟机提到过的处于方法区的永生代(Permanet Generation)，它用来存储 class 类，<br>常量，方法描述等。对永生代的回收主要包括废弃常量和无用的类。</li>
+<li>对象的内存分配主要在新生代的 Eden Space 和 Survivor Space 的 From Space(Survivor 目<br>前存放对象的那一块)，少数情况会直接分配到老生代。</li>
+<li>当新生代的 Eden Space 和 From Space 空间不足时就会发生一次 GC，进行 GC 后，Eden<br>Space 和 From Space 区的存活对象会被挪到 To Space，然后将 Eden Space 和 From<br>Space 进行清理。</li>
+<li>如果 To Space 无法足够存储某个对象，则将这个对象存储到老生代。</li>
+<li>在进行 GC 后，使用的便是 Eden Space 和 To Space 了，如此反复循环。</li>
+<li>当对象在 Survivor 区躲过一次 GC 后，其年龄就会+1。默认情况下年龄到达 15 的对象会被<br>移到老生代中。<h1 id="5、Java四种引用类型"><a href="#5、Java四种引用类型" class="headerlink" title="5、Java四种引用类型"></a>5、Java四种引用类型</h1><h2 id="5-1-强引用"><a href="#5-1-强引用" class="headerlink" title="5.1 强引用"></a>5.1 强引用</h2>在 Java 中最常见的就是强引用，把一个对象赋给一个引用变量，这个引用变量就是一个强引<br>用。当一个对象被强引用变量引用时，它处于可达状态，它是不可能被垃圾回收机制回收的，即<br>使该对象以后永远都不会被用到 JVM 也不会回收。因此强引用是造成 Java 内存泄漏的主要原因之<br>一。<h2 id="5-1-软引用"><a href="#5-1-软引用" class="headerlink" title="5.1 软引用"></a>5.1 软引用</h2>软引用需要用 SoftReference 类来实现，对于只有软引用的对象来说，当系统内存足够时它<br>不会被回收，当系统内存空间不足时它会被回收。软引用通常用在对内存敏感的程序中。<h2 id="5-1-弱引用"><a href="#5-1-弱引用" class="headerlink" title="5.1 弱引用"></a>5.1 弱引用</h2>弱引用需要用 WeakReference 类来实现，它比软引用的生存期更短，对于只有弱引用的对象<br>来说，只要垃圾回收机制一运行，不管 JVM 的内存空间是否足够，总会回收该对象占用的内存。<h2 id="5-1-虚引用"><a href="#5-1-虚引用" class="headerlink" title="5.1 虚引用"></a>5.1 虚引用</h2>虚引用需要 PhantomReference 类来实现，它不能单独使用，必须和引用队列联合使用。虚<br>引用的主要作用是跟踪对象被垃圾回收的状态。<h1 id="6、GC分代收集算法VS分区收集算法"><a href="#6、GC分代收集算法VS分区收集算法" class="headerlink" title="6、GC分代收集算法VS分区收集算法"></a>6、GC分代收集算法VS分区收集算法</h1><h2 id="6-1-分代收集算法"><a href="#6-1-分代收集算法" class="headerlink" title="6.1 分代收集算法"></a>6.1 分代收集算法</h2>当前主流 VM 垃圾收集都采用”分代收集”(Generational Collection)算法, 这种算法会根据<br>对象存活周期的不同将内存划分为几块, 如 JVM 中的 新生代、老年代、永久代，这样就可以根据<br>各年代特点分别采用最适当的 GC 算法<h3 id="6-1-1-在新生代-复制算法"><a href="#6-1-1-在新生代-复制算法" class="headerlink" title="6.1.1 在新生代-复制算法"></a>6.1.1 在新生代-复制算法</h3>每次垃圾收集都能发现大批对象已死, 只有少量存活. 因此选用复制算法, 只需要付出少量<br>存活对象的复制成本就可以完成收集.<h3 id="6-1-2-在老年代-标记整理算法"><a href="#6-1-2-在老年代-标记整理算法" class="headerlink" title="6.1.2 在老年代-标记整理算法"></a>6.1.2 在老年代-标记整理算法</h3>因为对象存活率高、没有额外空间对它进行分配担保, 就必须采用“标记—清理”或“标<br>记—整理”算法来进行回收, 不必进行内存复制, 且直接腾出空闲内存。<h2 id="6-2-分区收集算法"><a href="#6-2-分区收集算法" class="headerlink" title="6.2 分区收集算法"></a>6.2 分区收集算法</h2>分区算法则将整个堆空间划分为连续的不同小区间, 每个小区间独立使用, 独立回收. 这样做的<br>好处是可以控制一次回收多少个小区间 , 根据目标停顿时间, 每次合理地回收若干个小区间(而不是<br>整个堆), 从而减少一次 GC 所产生的停顿。<h1 id="7、GC垃圾收集器"><a href="#7、GC垃圾收集器" class="headerlink" title="7、GC垃圾收集器"></a>7、GC垃圾收集器</h1><h2 id="7-1-Serial-垃圾收集器（单线程、复制算法）"><a href="#7-1-Serial-垃圾收集器（单线程、复制算法）" class="headerlink" title="7.1 Serial 垃圾收集器（单线程、复制算法）"></a>7.1 Serial 垃圾收集器（单线程、复制算法）</h2>Serial（英文连续）是最基本垃圾收集器，使用复制算法，曾经是JDK1.3.1 之前新生代唯一的垃圾<br>收集器。Serial 是一个单线程的收集器，它不但只会使用一个 CPU 或一条线程去完成垃圾收集工<br>作，并且在进行垃圾收集的同时，必须暂停其他所有的工作线程，直到垃圾收集结束。<br>Serial 垃圾收集器虽然在收集垃圾过程中需要暂停所有其他的工作线程，但是它简单高效，对于限<br>定单个 CPU 环境来说，没有线程交互的开销，可以获得最高的单线程垃圾收集效率，因此 Serial<br>垃圾收集器依然是 java 虚拟机运行在 Client 模式下默认的新生代垃圾收集器。<h2 id="7-2-ParNew-垃圾收集器（Serial-多线程）"><a href="#7-2-ParNew-垃圾收集器（Serial-多线程）" class="headerlink" title="7.2 ParNew 垃圾收集器（Serial+多线程）"></a>7.2 ParNew 垃圾收集器（Serial+多线程）</h2>ParNew 垃圾收集器其实是 Serial 收集器的多线程版本，也使用复制算法，除了使用多线程进行垃<br>圾收集之外，其余的行为和 Serial 收集器完全一样，ParNew 垃圾收集器在垃圾收集过程中同样也<br>要暂停所有其他的工作线程。<br>13/04/2018 Page 32 of 283<br>ParNew 收集器默认开启和 CPU 数目相同的线程数，可以通过-XX:ParallelGCThreads 参数来限<br>制垃圾收集器的线程数。【Parallel：平行的】<br>ParNew虽然是除了多线程外和Serial 收集器几乎完全一样，但是ParNew垃圾收集器是很多 java<br>虚拟机运行在 Server 模式下新生代的默认垃圾收集器。<h2 id="7-3-Parallel-Scavenge-收集器（多线程复制算法、高效）"><a href="#7-3-Parallel-Scavenge-收集器（多线程复制算法、高效）" class="headerlink" title="7.3 Parallel Scavenge 收集器（多线程复制算法、高效）"></a>7.3 Parallel Scavenge 收集器（多线程复制算法、高效）</h2>Parallel Scavenge 收集器也是一个新生代垃圾收集器，同样使用复制算法，也是一个多线程的垃<br>圾收集器，它重点关注的是程序达到一个可控制的吞吐量（Thoughput，CPU 用于运行用户代码<br>的时间/CPU 总消耗时间，即吞吐量=运行用户代码时间/(运行用户代码时间+垃圾收集时间)），<br>高吞吐量可以最高效率地利用 CPU 时间，尽快地完成程序的运算任务，主要适用于在后台运算而<br>不需要太多交互的任务。自适应调节策略也是 ParallelScavenge 收集器与 ParNew 收集器的一个<br>重要区别。<h2 id="7-4-Serial-Old-收集器（单线程标记整理算法-）"><a href="#7-4-Serial-Old-收集器（单线程标记整理算法-）" class="headerlink" title="7.4 Serial Old 收集器（单线程标记整理算法 ）"></a>7.4 Serial Old 收集器（单线程标记整理算法 ）</h2>Serial Old 是 Serial 垃圾收集器年老代版本，它同样是个单线程的收集器，使用标记-整理算法，<br>这个收集器也主要是运行在 Client 默认的 java 虚拟机默认的年老代垃圾收集器。 在 Server 模式下，主要有两个用途：</li>
+<li>在 JDK1.5 之前版本中与新生代的 Parallel Scavenge 收集器搭配使用。</li>
+<li>作为年老代中使用 CMS 收集器的后备垃圾收集方案。<br>新生代 Serial 与年老代 Serial Old 搭配垃圾收集过程图：<br><img src="https://img-blog.csdnimg.cn/20200510073330510.png" alt="在这里插入图片描述"><br>新生代 Parallel Scavenge 收集器与 ParNew 收集器工作原理类似，都是多线程的收集器，都使<br>用的是复制算法，在垃圾收集过程中都需要暂停所有的工作线程。新生代 Parallel<br>Scavenge/ParNew 与年老代 Serial Old 搭配垃圾收集过程图：<br><img src="https://img-blog.csdnimg.cn/20200510073350450.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3BhbmdfcGluZw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
+</ol>
+<h2 id="7-5-Parallel-Old-收集器（多线程标记整理算法）"><a href="#7-5-Parallel-Old-收集器（多线程标记整理算法）" class="headerlink" title="7.5 Parallel Old 收集器（多线程标记整理算法）"></a>7.5 Parallel Old 收集器（多线程标记整理算法）</h2><p>Parallel Old 收集器是Parallel Scavenge的年老代版本，使用多线程的标记-整理算法，在 JDK1.6<br>才开始提供。<br>在 JDK1.6 之前，新生代使用 ParallelScavenge 收集器只能搭配年老代的 Serial Old 收集器，只<br>能保证新生代的吞吐量优先，无法保证整体的吞吐量，Parallel Old 正是为了在年老代同样提供吞<br>吐量优先的垃圾收集器，如果系统对吞吐量要求比较高，可以优先考虑新生代 Parallel Scavenge<br>和年老代 Parallel Old 收集器的搭配策略。<br>新生代 Parallel Scavenge 和年老代 Parallel Old 收集器搭配运行过程图：<br><img src="https://img-blog.csdnimg.cn/20200510073416150.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3BhbmdfcGluZw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h2 id="7-6-Serial-垃圾收集器（单线程、复制算法）"><a href="#7-6-Serial-垃圾收集器（单线程、复制算法）" class="headerlink" title="7.6 Serial 垃圾收集器（单线程、复制算法）"></a>7.6 Serial 垃圾收集器（单线程、复制算法）</h2><p>Concurrent mark sweep(CMS)收集器是一种年老代垃圾收集器，其最主要目标是获取最短垃圾<br>回收停顿时间，和其他年老代使用标记-整理算法不同，它使用多线程的标记-清除算法。<br>最短的垃圾收集停顿时间可以为交互比较高的程序提高用户体验。<br>CMS 工作机制相比其他的垃圾收集器来说更复杂，整个过程分为以下 4 个阶段：</p>
+<h3 id="7-6-1-初始标记"><a href="#7-6-1-初始标记" class="headerlink" title="7.6.1 初始标记"></a>7.6.1 初始标记</h3><p>只是标记一下 GC Roots 能直接关联的对象，速度很快，仍然需要暂停所有的工作线程。</p>
+<h3 id="7-6-2-并发标记"><a href="#7-6-2-并发标记" class="headerlink" title="7.6.2 并发标记"></a>7.6.2 并发标记</h3><p>进行 GC Roots 跟踪的过程，和用户线程一起工作，不需要暂停工作线程。</p>
+<h3 id="7-6-3-重新标记"><a href="#7-6-3-重新标记" class="headerlink" title="7.6.3 重新标记"></a>7.6.3 重新标记</h3><p>为了修正在并发标记期间，因用户程序继续运行而导致标记产生变动的那一部分对象的标记<br>记录，仍然需要暂停所有的工作线程。</p>
+<h3 id="7-6-4-并发清除"><a href="#7-6-4-并发清除" class="headerlink" title="7.6.4 并发清除"></a>7.6.4 并发清除</h3><p>清除 GC Roots 不可达对象，和用户线程一起工作，不需要暂停工作线程。由于耗时最长的并<br>发标记和并发清除过程中，垃圾收集线程可以和用户现在一起并发工作，所以总体上来看<br>CMS 收集器的内存回收和用户线程是一起并发地执行。<br>CMS 收集器工作过程：<br><img src="https://img-blog.csdnimg.cn/20200510073556169.png" alt="在这里插入图片描述"></p>
+<h2 id="7-7-G1-收集器"><a href="#7-7-G1-收集器" class="headerlink" title="7.7 G1 收集器"></a>7.7 G1 收集器</h2><p>Garbage first 垃圾收集器是目前垃圾收集器理论发展的最前沿成果，相比与 CMS 收集器，G1 收<br>集器两个最突出的改进是：</p>
+<ol>
+<li>基于标记-整理算法，不产生内存碎片。</li>
+<li>可以非常精确控制停顿时间，在不牺牲吞吐量前提下，实现低停顿垃圾回收。<br>G1 收集器避免全区域垃圾收集，它把堆内存划分为大小固定的几个独立区域，并且跟踪这些区域<br>的垃圾收集进度，同时在后台维护一个优先级列表，每次根据所允许的收集时间，优先回收垃圾<br>最多的区域。区域划分和优先级区域回收机制，确保 G1 收集器可以在有限时间获得最高的垃圾收<br>集效率。<h1 id="8、Java-IO-NIO"><a href="#8、Java-IO-NIO" class="headerlink" title="8、Java IO/NIO"></a>8、Java IO/NIO</h1><h2 id="8-1-Java-IO"><a href="#8-1-Java-IO" class="headerlink" title="8.1  Java IO"></a>8.1  Java IO</h2><img src="https://img-blog.csdnimg.cn/20200510074452902.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3BhbmdfcGluZw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><h3 id="8-1-1-阻塞IO-模型"><a href="#8-1-1-阻塞IO-模型" class="headerlink" title="8.1.1  阻塞IO 模型"></a>8.1.1  阻塞IO 模型</h3>最传统的一种 IO 模型，即在读写数据过程中会发生阻塞现象。当用户线程发出 IO 请求之后，内<br>核会去查看数据是否就绪，如果没有就绪就会等待数据就绪，而用户线程就会处于阻塞状态，用<br>户线程交出 CPU。当数据就绪之后，内核会将数据拷贝到用户线程，并返回结果给用户线程，用<br>13/04/2018 Page 35 of 283<br>户线程才解除 block 状态。典型的阻塞 IO 模型的例子为：data = socket.read();如果数据没有就<br>绪，就会一直阻塞在 read 方法。<h3 id="8-1-2-非阻塞IO-模型"><a href="#8-1-2-非阻塞IO-模型" class="headerlink" title="8.1.2  非阻塞IO 模型"></a>8.1.2  非阻塞IO 模型</h3>当用户线程发起一个 read 操作后，并不需要等待，而是马上就得到了一个结果。如果结果是一个<br>error 时，它就知道数据还没有准备好，于是它可以再次发送 read 操作。一旦内核中的数据准备<br>好了，并且又再次收到了用户线程的请求，那么它马上就将数据拷贝到了用户线程，然后返回。<br>所以事实上，在非阻塞 IO 模型中，用户线程需要不断地询问内核数据是否就绪，也就说非阻塞 IO<br>不会交出 CPU，而会一直占用 CPU。典型的非阻塞 IO 模型一般如下：<br><img src="https://img-blog.csdnimg.cn/20200510074306347.png" alt="在这里插入图片描述"><br>但是对于非阻塞 IO 就有一个非常严重的问题，在 while 循环中需要不断地去询问内核数据是否就<br>绪，这样会导致 CPU 占用率非常高，因此一般情况下很少使用 while 循环这种方式来读取数据。<h3 id="8-1-3-多路复用-IO-模型"><a href="#8-1-3-多路复用-IO-模型" class="headerlink" title="8.1.3  多路复用 IO 模型"></a>8.1.3  多路复用 IO 模型</h3>多路复用 IO 模型是目前使用得比较多的模型。Java NIO 实际上就是多路复用 IO。在多路复用 IO<br>模型中，会有一个线程不断去轮询多个 socket 的状态，只有当 socket 真正有读写事件时，才真<br>正调用实际的 IO 读写操作。因为在多路复用 IO 模型中，只需要使用一个线程就可以管理多个<br>socket，系统不需要建立新的进程或者线程，也不必维护这些线程和进程，并且只有在真正有<br>socket 读写事件进行时，才会使用 IO 资源，所以它大大减少了资源占用。在 Java NIO 中，是通<br>过 selector.select()去查询每个通道是否有到达事件，如果没有事件，则一直阻塞在那里，因此这<br>种方式会导致用户线程的阻塞。多路复用 IO 模式，通过一个线程就可以管理多个 socket，只有当<br>socket 真正有读写事件发生才会占用资源来进行实际的读写操作。因此，多路复用 IO 比较适合连<br>接数比较多的情况。<br>另外多路复用 IO 为何比非阻塞 IO 模型的效率高是因为在非阻塞 IO 中，不断地询问 socket 状态<br>时通过用户线程去进行的，而在多路复用 IO 中，轮询每个 socket 状态是内核在进行的，这个效<br>率要比用户线程要高的多。<br>不过要注意的是，多路复用 IO 模型是通过轮询的方式来检测是否有事件到达，并且对到达的事件<br>逐一进行响应。因此对于多路复用 IO 模型来说，一旦事件响应体很大，那么就会导致后续的事件<br>迟迟得不到处理，并且会影响新的事件轮询。<h3 id="8-1-4-信号驱动-IO-模型"><a href="#8-1-4-信号驱动-IO-模型" class="headerlink" title="8.1.4  信号驱动 IO 模型"></a>8.1.4  信号驱动 IO 模型</h3>在信号驱动 IO 模型中，当用户线程发起一个 IO 请求操作，会给对应的 socket 注册一个信号函<br>数，然后用户线程会继续执行，当内核数据就绪时会发送一个信号给用户线程，用户线程接收到<br>信号之后，便在信号函数中调用 IO 读写操作来进行实际的 IO 请求操作。<h3 id="8-1-5-异步-IO-模型"><a href="#8-1-5-异步-IO-模型" class="headerlink" title="8.1.5  异步 IO 模型"></a>8.1.5  异步 IO 模型</h3>异步 IO 模型才是最理想的 IO 模型，在异步 IO 模型中，当用户线程发起 read 操作之后，立刻就<br>可以开始去做其它的事。而另一方面，从内核的角度，当它受到一个 asynchronous read 之后，<br>它会立刻返回，说明 read 请求已经成功发起了，因此不会对用户线程产生任何 block。然后，内<br>核会等待数据准备完成，然后将数据拷贝到用户线程，当这一切都完成之后，内核会给用户线程<br>发送一个信号，告诉它 read 操作完成了。也就说用户线程完全不需要实际的整个 IO 操作是如何<br>进行的，只需要先发起一个请求，当接收内核返回的成功信号时表示 IO 操作已经完成，可以直接<br>去使用数据了。<br>也就说在异步 IO 模型中，IO 操作的两个阶段都不会阻塞用户线程，这两个阶段都是由内核自动完<br>成，然后发送一个信号告知用户线程操作已完成。用户线程中不需要再次调用 IO 函数进行具体的<br>读写。这点是和信号驱动模型有所不同的，在信号驱动模型中，当用户线程接收到信号表示数据<br>已经就绪，然后需要用户线程调用 IO 函数进行实际的读写操作；而在异步 IO 模型中，收到信号<br>表示 IO 操作已经完成，不需要再在用户线程中调用 IO 函数进行实际的读写操作<h2 id="8-2-Java-NIO"><a href="#8-2-Java-NIO" class="headerlink" title="8.2  Java NIO"></a>8.2  Java NIO</h2><img src="https://img-blog.csdnimg.cn/20200510080733981.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3BhbmdfcGluZw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>NIO 主要有三大核心部分：Channel(通道)，Buffer(缓冲区), Selector。传统 IO 基于字节流和字符流进行操作，而 NIO 基于 Channel 和 Buffer(缓冲区)进行操作，数据总是从通道读取到缓冲区<br>中，或者从缓冲区写入到通道中。Selector(选择区)用于监听多个通道的事件（比如：连接打开，<br>数据到达）。因此，单个线程可以监听多个数据通道。<br><img src="https://img-blog.csdnimg.cn/20200510074600725.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3BhbmdfcGluZw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>NIO 和传统 IO 之间第一个最大的区别是，IO 是面向流的，NIO 是面向缓冲区的。<h3 id="8-2-1-NIO-的缓冲区"><a href="#8-2-1-NIO-的缓冲区" class="headerlink" title="8.2.1 NIO 的缓冲区"></a>8.2.1 NIO 的缓冲区</h3>Java IO 面向流意味着每次从流中读一个或多个字节，直至读取所有字节，它们没有被缓存在任何<br>地方。此外，它不能前后移动流中的数据。如果需要前后移动从流中读取的数据，需要先将它缓<br>存到一个缓冲区。NIO 的缓冲导向方法不同。数据读取到一个它稍后处理的缓冲区，需要时可在<br>缓冲区中前后移动。这就增加了处理过程中的灵活性。但是，还需要检查是否该缓冲区中包含所<br>有您需要处理的数据。而且，需确保当更多的数据读入缓冲区时，不要覆盖缓冲区里尚未处理的<br>数据。<h3 id="8-2-2-NIO-的非阻塞"><a href="#8-2-2-NIO-的非阻塞" class="headerlink" title="8.2.2 NIO 的非阻塞"></a>8.2.2 NIO 的非阻塞</h3>IO 的各种流是阻塞的。这意味着，当一个线程调用 read() 或 write()时，该线程被阻塞，直到有<br>一些数据被读取，或数据完全写入。该线程在此期间不能再干任何事情了。 NIO 的非阻塞模式，<br>使一个线程从某通道发送请求读取数据，但是它仅能得到目前可用的数据，如果目前没有数据可<br>用时，就什么都不会获取。而不是保持线程阻塞，所以直至数据变的可以读取之前，该线程可以<br>继续做其他的事情。 非阻塞写也是如此。一个线程请求写入一些数据到某通道，但不需要等待它<br>完全写入，这个线程同时可以去做别的事情。 线程通常将非阻塞 IO 的空闲时间用于在其它通道上<br>执行 IO 操作，所以一个单独的线程现在可以管理多个输入和输出通道（channel）。<h3 id="8-2-3-Channel"><a href="#8-2-3-Channel" class="headerlink" title="8.2.3 Channel"></a>8.2.3 Channel</h3>首先说一下 Channel，国内大多翻译成“通道”。Channel 和 IO 中的 Stream(流)是差不多一个<br>等级的。只不过 Stream 是单向的，譬如：InputStream, OutputStream，而 Channel 是双向<br>的，既可以用来进行读操作，又可以用来进行写操作。<br>NIO 中的 Channel 的主要实现有：</li>
+<li>FileChannel</li>
+<li>DatagramChannel</li>
+<li>SocketChannel</li>
+<li>ServerSocketChannel<br>这里看名字就可以猜出个所以然来：分别可以对应文件 IO、UDP 和 TCP（Server 和 Client）。<br>下面演示的案例基本上就是围绕这 4 个类型的 Channel 进行陈述的。<h3 id="8-2-4-Buffer"><a href="#8-2-4-Buffer" class="headerlink" title="8.2.4 Buffer"></a>8.2.4 Buffer</h3>Buffer，故名思意，缓冲区，实际上是一个容器，是一个连续数组。Channel 提供从文件、网络读取数据的渠道，但是读取或写入的数据都必须经由 Buffer。<br><img src="https://img-blog.csdnimg.cn/20200510081051935.png" alt="在这里插入图片描述"><br>上面的图描述了从一个客户端向服务端发送数据，然后服务端接收数据的过程。客户端发送数据时，必须先将数据存入 Buffer 中，然后将 Buffer 中的内容写入通道。服务端这边接收数据必<br>须通过 Channel 将数据读入到 Buffer 中，然后再从 Buffer 中取出数据来处理。 在 NIO 中，Buffer 是一个顶层父类，它是一个抽象类，常用的 Buffer 的子类有：<br>ByteBuffer、IntBuffer、 CharBuffer、 LongBuffer、 DoubleBuffer、FloatBuffer、ShortBuffe<h3 id="8-2-5-Selector"><a href="#8-2-5-Selector" class="headerlink" title="8.2.5 Selector"></a>8.2.5 Selector</h3>Selector 类是 NIO 的核心类，Selector 能够检测多个注册的通道上是否有事件发生，如果有事<br>件发生，便获取事件然后针对每个事件进行相应的响应处理。这样一来，只是用一个单线程就可<br>以管理多个通道，也就是管理多个连接。这样使得只有在连接真正有读写事件发生时，才会调用<br>函数来进行读写，就大大地减少了系统开销，并且不必为每个连接都创建一个线程，不用去维护<br>多个线程，并且避免了多线程之间的上下文切换导致的开销。</li>
+</ol>
+<h1 id="9、JVM类加载机制"><a href="#9、JVM类加载机制" class="headerlink" title="9、JVM类加载机制"></a>9、JVM类加载机制</h1><h2 id="9-1-JVM-类加载流程"><a href="#9-1-JVM-类加载流程" class="headerlink" title="9.1 JVM 类加载流程"></a>9.1 JVM 类加载流程</h2><p>JVM 类加载机制分为五个部分：加载，验证，准备，解析，初始化，下面我们就分别来看一下这五个过程。<br><img src="https://img-blog.csdnimg.cn/20200510081319357.png" alt="在这里插入图片描述"></p>
+<h3 id="9-1-1-加载"><a href="#9-1-1-加载" class="headerlink" title="9.1.1 加载"></a>9.1.1 加载</h3><p>加载是类加载过程中的一个阶段，这个阶段会在内存中生成一个代表这个类的 java.lang.Class 对 象，作为方法区这个类的各种数据的入口。注意这里不一定非得要从一个 Class 文件获取，这里既<br>可以从 ZIP 包中读取（比如从 jar 包和 war 包中读取），也可以在运行时计算生成（动态代理），<br>也可以由其它文件生成（比如将 JSP 文件转换成对应的 Class 类）。</p>
+<h3 id="9-1-2-验证"><a href="#9-1-2-验证" class="headerlink" title="9.1.2 验证"></a>9.1.2 验证</h3><p>这一阶段的主要目的是为了确保 Class 文件的字节流中包含的信息是否符合当前虚拟机的要求，并<br>且不会危害虚拟机自身的安全。</p>
+<h3 id="9-1-3-准备"><a href="#9-1-3-准备" class="headerlink" title="9.1.3 准备"></a>9.1.3 准备</h3><p>准备阶段是正式为类变量分配内存并设置类变量的初始值阶段，即在方法区中分配这些变量所使<br>用的内存空间。注意这里所说的初始值概念，比如一个类变量定义为：<br><img src="https://img-blog.csdnimg.cn/20200510081645420.png" alt="在这里插入图片描述"><br>实际上变量 v 在准备阶段过后的初始值为 0 而不是 8080，将 v 赋值为 8080 的 put static 指令是<br>程序被编译后，存放于类构造器<client>方法之中。<br>但是注意如果声明为：<br><img src="https://img-blog.csdnimg.cn/20200510081702186.png" alt="在这里插入图片描述"><br>在编译阶段会为 v 生成 ConstantValue 属性，在准备阶段虚拟机会根据 ConstantValue 属性将 v<br>赋值为 8080。</p>
+<h3 id="9-1-4-解析"><a href="#9-1-4-解析" class="headerlink" title="9.1.4 解析"></a>9.1.4 解析</h3><p>解析阶段是指虚拟机将常量池中的符号引用替换为直接引用的过程。符号引用就是 class 文件中<br>的：<br>13/04/2018 Page 42 of 283</p>
+<ol>
+<li>CONSTANT_Class_info</li>
+<li>CONSTANT_Field_info</li>
+<li>CONSTANT_Method_info<br>等类型的常量。<h3 id="9-1-5-符号引用"><a href="#9-1-5-符号引用" class="headerlink" title="9.1.5 符号引用"></a>9.1.5 符号引用</h3>符号引用与虚拟机实现的布局无关，引用的目标并不一定要已经加载到内存中。各种虚拟<br>机实现的内存布局可以各不相同，但是它们能接受的符号引用必须是一致的，因为符号引<br>用的字面量形式明确定义在 Java 虚拟机规范的 Class 文件格式中。</li>
+</ol>
+<h3 id="9-1-6-直接引用"><a href="#9-1-6-直接引用" class="headerlink" title="9.1.6 直接引用"></a>9.1.6 直接引用</h3><p>直接引用可以是指向目标的指针，相对偏移量或是一个能间接定位到目标的句柄。如果有<br>了直接引用，那引用的目标必定已经在内存中存在。</p>
+<h3 id="9-1-7-初始化"><a href="#9-1-7-初始化" class="headerlink" title="9.1.7 初始化"></a>9.1.7 初始化</h3><p>初始化阶段是类加载最后一个阶段，前面的类加载阶段之后，除了在加载阶段可以自定义类加载<br>器以外，其它操作都由 JVM 主导。到了初始阶段，才开始真正执行类中定义的 Java 程序代码。</p>
+<h3 id="9-1-8-类构造器"><a href="#9-1-8-类构造器" class="headerlink" title="9.1.8 类构造器"></a>9.1.8 类构造器<client></h3><p>初始化阶段是执行类构造器<client>方法的过程。<client>方法是由编译器自动收集类中的类变<br>量的赋值操作和静态语句块中的语句合并而成的。虚拟机会保证子<client>方法执行之前，父类<br>的<client>方法已经执行完毕，如果一个类中没有对静态变量赋值也没有静态语句块，那么编译<br>器可以不为这个类生成<client>()方法。<br>注意以下几种情况不会执行类初始化：</p>
+<ol>
+<li>通过子类引用父类的静态字段，只会触发父类的初始化，而不会触发子类的初始化。</li>
+<li>定义对象数组，不会触发该类的初始化。</li>
+<li>常量在编译期间会存入调用类的常量池中，本质上并没有直接引用定义常量的类，不会触<br>发定义常量所在的类。</li>
+<li>通过类名获取 Class 对象，不会触发类的初始化。</li>
+<li>通过 Class.forName 加载指定类时，如果指定参数 initialize 为 false 时，也不会触发类初<br>始化，其实这个参数是告诉虚拟机，是否要对类进行初始化。</li>
+<li>通过 ClassLoader 默认的 loadClass 方法，也不会触发初始化动作<h2 id="9-2-类加载器"><a href="#9-2-类加载器" class="headerlink" title="9.2 类加载器"></a>9.2 类加载器</h2>虚拟机设计团队把加载动作放到 JVM 外部实现，以便让应用程序决定如何获取所需的类，JVM 提<br>供了 3 种类加载器：<h3 id="9-2-1-启动类加载器-Bootstrap-ClassLoader"><a href="#9-2-1-启动类加载器-Bootstrap-ClassLoader" class="headerlink" title="9.2.1 启动类加载器(Bootstrap ClassLoader)"></a>9.2.1 启动类加载器(Bootstrap ClassLoader)</h3>负责加载 JAVA_HOME\lib 目录中的，或通过-Xbootclasspath 参数指定路径中的，且被<br>虚拟机认可（按文件名识别，如 rt.jar）的类。<h3 id="9-2-2-扩展类加载器-Extension-ClassLoader"><a href="#9-2-2-扩展类加载器-Extension-ClassLoader" class="headerlink" title="9.2.2 扩展类加载器(Extension ClassLoader)"></a>9.2.2 扩展类加载器(Extension ClassLoader)</h3>负责加载 JAVA_HOME\lib\ext 目录中的，或通过 java.ext.dirs 系统变量指定路径中的类<br>库。<h3 id="9-2-3-扩展类加载器-Extension-ClassLoader"><a href="#9-2-3-扩展类加载器-Extension-ClassLoader" class="headerlink" title="9.2.3 扩展类加载器(Extension ClassLoader)"></a>9.2.3 扩展类加载器(Extension ClassLoader)</h3>负责加载用户路径（classpath）上的类库。<br>JVM 通过双亲委派模型进行类的加载，当然我们也可以通过继承 java.lang.ClassLoader<br>实现自定义的类加载器。<br><img src="https://img-blog.csdnimg.cn/20200510082239715.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3BhbmdfcGluZw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></li>
+</ol>
+<h2 id="9-3-双亲委派"><a href="#9-3-双亲委派" class="headerlink" title="9.3 双亲委派"></a>9.3 双亲委派</h2><p>当一个类收到了类加载请求，他首先不会尝试自己去加载这个类，而是把这个请求委派给父<br>类去完成，每一个层次类加载器都是如此，因此所有的加载请求都应该传送到启动类加载其中，<br>只有当父类加载器反馈自己无法完成这个请求的时候（在它的加载路径下没有找到所需加载的<br>Class），子类加载器才会尝试自己去加载。<br>采用双亲委派的一个好处是比如加载位于 rt.jar 包中的类 java.lang.Object，不管是哪个加载<br>器加载这个类，最终都是委托给顶层的启动类加载器进行加载，这样就保证了使用不同的类加载<br>器最终得到的都是同样一个 Object 对象。<br><img src="https://img-blog.csdnimg.cn/20200510082311852.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3BhbmdfcGluZw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"></p>
+<h2 id="9-4-OSGI（动态模型系统）"><a href="#9-4-OSGI（动态模型系统）" class="headerlink" title="9.4 OSGI（动态模型系统）"></a>9.4 OSGI（动态模型系统）</h2><p>OSGi(Open Service Gateway Initiative)，是面向 Java 的动态模型系统，是 Java 动态化模块化系<br>统的一系列规范。</p>
+<h3 id="9-4-1-动态改变构造"><a href="#9-4-1-动态改变构造" class="headerlink" title="9.4.1 动态改变构造"></a>9.4.1 动态改变构造</h3><p>OSGi 服务平台提供在多种网络设备上无需重启的动态改变构造的功能。为了最小化耦合度和促使<br>这些耦合度可管理，OSGi 技术提供一种面向服务的架构，它能使这些组件动态地发现对方。</p>
+<h3 id="9-4-2-模块化编程与热插拔"><a href="#9-4-2-模块化编程与热插拔" class="headerlink" title="9.4.2 模块化编程与热插拔"></a>9.4.2 模块化编程与热插拔</h3><p>OSGi 旨在为实现 Java 程序的模块化编程提供基础条件，基于 OSGi 的程序很可能可以实现模块级<br>的热插拔功能，当程序升级更新时，可以只停用、重新安装然后启动程序的其中一部分，这对企<br>业级程序开发来说是非常具有诱惑力的特性。<br>OSGi 描绘了一个很美好的模块化开发目标，而且定义了实现这个目标的所需要服务与架构，同时<br>也有成熟的框架进行实现支持。但并非所有的应用都适合采用 OSGi 作为基础架构，它在提供强大<br>功能同时，也引入了额外的复杂度，因为它不遵守了类加载的双亲委托模型。</p>
+<p><img src="https://img-blog.csdnimg.cn/20191029173357421.gif" alt="在这里插入图片描述"></p>
+]]></content>
+      <categories>
+        <category>JVM</category>
+      </categories>
+      <tags>
+        <tag>JVM</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java设计模式之三大分类</title>
+    <url>/2020/04/05/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F-%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F%E5%88%86%E7%B1%BB/</url>
+    <content><![CDATA[<h1 id="1-设计模式简介"><a href="#1-设计模式简介" class="headerlink" title="1.设计模式简介"></a>1.设计模式简介</h1><p>软件设计模式（Software Design Pattern），又称设计模式，是一套被反复使用、多数人知晓的、经过分类编目的、代码设计经验的总结。它描述了在软件设计过程中的一些不断重复发生的问题，以及该问题的解决方案。也就是说，它是解决特定问题的一系列套路，是前辈们的代码设计经验的总结，具有一定的普遍性，可以反复使用。其目的是为了提高代码的可重用性、代码的可读性和代码的可靠性。</p>
+<a id="more"></a>
+
+<h1 id="2-什么是-GOF四人帮？"><a href="#2-什么是-GOF四人帮？" class="headerlink" title="2.什么是 GOF四人帮？"></a>2.什么是 GOF四人帮？</h1><p>在 1994 年，由 Erich Gamma、Richard Helm、Ralph Johnson 和 John Vlissides 四人（Gang of Four，四人组/帮）合著出版了一本名为 Design Patterns - Elements of Reusable Object-Oriented Software（中文译名：设计模式 - 可复用的面向对象软件元素） 的书。<br>该书首次提到了软件开发中设计模式的概念，从此树立了软件设计模式领域的里程碑，人称「GoF设计模式」。</p>
+<h1 id="3-设计模式三大分类"><a href="#3-设计模式三大分类" class="headerlink" title="3.设计模式三大分类"></a>3.设计模式三大分类</h1><p>根据设计模式的参考书 Design Patterns - Elements of Reusable Object-Oriented Software（中文译名：设计模式 - 可复用的面向对象软件元素） 中所提到的，总共有 23 种设计模式。这些模式可以分为三大分类：创建型模式（Creational Patterns）、结构型模式（Structural Patterns）、行为型模式（Behavioral Patterns）。</p>
+<h2 id="3-1创建型模式"><a href="#3-1创建型模式" class="headerlink" title="3.1创建型模式"></a>3.1创建型模式</h2><p>主要用于定义和约束如何创建一个新的对象。</p>
+<p>创建型模式分为以下5种。</p>
+<ul>
+<li>单例（Singleton）模式：某个类只能生成一个实例，该类提供了一个全局访问点供外部获取该实例，其拓展是有限多例模式。</li>
+<li>原型（Prototype）模式：将一个对象作为原型，通过对其进行复制而克隆出多个和原型类似的新实例。</li>
+<li>工厂方法（FactoryMethod）模式：定义一个用于创建产品的接口，由子类决定生产什么产品。</li>
+<li>抽象工厂（AbstractFactory）模式：提供一个创建产品族的接口，其每个子类可以生产一系列相关的产品。</li>
+<li>建造者（Builder）模式：将一个复杂对象分解成多个相对简单的部分，然后根据不同需要分别创建它们，最后构建成该复杂对象。</li>
+</ul>
+<p>以上 5 种创建型模式，除了工厂方法模式属于类创建型模式，其他的全部属于对象创建型模式</p>
+<h2 id="3-1结构型模式"><a href="#3-1结构型模式" class="headerlink" title="3.1结构型模式"></a>3.1结构型模式</h2><p>主要用于定义如何使用多个对象组合出一个或多个复合对象。</p>
+<p>结构型模式分为以下 7 种：</p>
+<ul>
+<li>代理（Proxy）模式：为某对象提供一种代理以控制对该对象的访问。即客户端通过代理间接地访问该对象，从而限制、增强或修改该对象的一些特性。</li>
+<li>适配器（Adapter）模式：将一个类的接口转换成客户希望的另外一个接口，使得原本由于接口不兼容而不能一起工作的那些类能一起工作。</li>
+<li>桥接（Bridge）模式：将抽象与实现分离，使它们可以独立变化。它是用组合关系代替继承关系来实现的，从而降低了抽象和实现这两个可变维度的耦合度。</li>
+<li>装饰（Decorator）模式：动态地给对象增加一些职责，即增加其额外的功能。</li>
+<li>外观（Facade）模式：为多个复杂的子系统提供一个一致的接口，使这些子系统更加容易被访问。</li>
+<li>享元（Flyweight）模式：运用共享技术来有效地支持大量细粒度对象的复用。</li>
+<li>组合（Composite）模式：将对象组合成树状层次结构，使用户对单个对象和组合对象具有一致的访问性。</li>
+</ul>
+<p>以上 7 种结构型模式，除了适配器模式分为类结构型模式和对象结构型模式两种，其他的全部属于对象结构型模式</p>
+<h2 id="3-1行为型模式"><a href="#3-1行为型模式" class="headerlink" title="3.1行为型模式"></a>3.1行为型模式</h2><p>主要用于定义和描述对象之间的交互规则和限定对象的职责边界线</p>
+<p>行为型模式是 GoF 设计模式中最为庞大的一类，它包含以下 11 种模式。</p>
+<ul>
+<li>模板方法（Template Method）模式：定义一个操作中的算法骨架，将算法的一些步骤延迟到子类中，使得子类在可以不改变该算法结构的情况下重定义该算法的某些特定步骤。</li>
+<li>策略（Strategy）模式：定义了一系列算法，并将每个算法封装起来，使它们可以相互替换，且算法的改变不会影响使用算法的客户。</li>
+<li>命令（Command）模式：将一个请求封装为一个对象，使发出请求的责任和执行请求的责任分割开。</li>
+<li>职责链（Chain of Responsibility）模式：把请求从链中的一个对象传到下一个对象，直到请求被响应为止。通过这种方式去除对象之间的耦合。</li>
+<li>状态（State）模式：允许一个对象在其内部状态发生改变时改变其行为能力。</li>
+<li>观察者（Observer）模式：多个对象间存在一对多关系，当一个对象发生改变时，把这种改变通知给其他多个对象，从而影响其他对象的行为。</li>
+<li>中介者（Mediator）模式：定义一个中介对象来简化原有对象之间的交互关系，降低系统中对象间的耦合度，使原有对象之间不必相互了解。</li>
+<li>迭代器（Iterator）模式：提供一种方法来顺序访问聚合对象中的一系列数据，而不暴露聚合对象的内部表示。</li>
+<li>访问者（Visitor）模式：在不改变集合元素的前提下，为一个集合中的每个元素提供多种访问方式，即每个元素有多个访问者对象访问。</li>
+<li>备忘录（Memento）模式：在不破坏封装性的前提下，获取并保存一个对象的内部状态，以便以后恢复它。</li>
+<li>解释器（Interpreter）模式：提供如何定义语言的文法，以及对语言句子的解释方法，即解释器。</li>
+</ul>
+<p>以上 11 种行为型模式，除了模板方法模式和解释器模式是类行为型模式，其他的全部属于对象行为型模式</p>
+<p><img src="https://img-blog.csdnimg.cn/20191029173357421.gif" alt="在这里插入图片描述"></p>
+]]></content>
+      <categories>
+        <category>Java设计模式</category>
+        <category>设计模式分类</category>
+      </categories>
+      <tags>
+        <tag>设计模式分类</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Java设计模式之六大设计原则</title>
+    <url>/2020/04/04/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F-%E5%85%AD%E5%A4%A7%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99/</url>
+    <content><![CDATA[<blockquote>
+<ul>
+<li>单一原则（Single Responsibility Principle）</li>
+<li>里氏替换原则（LSP liskov substitution principle）</li>
+<li>依赖倒置原则（dependence inversion principle）</li>
+<li>接口隔离原则（interface segregation principle）</li>
+<li>迪米特原则（law of demeter LOD）</li>
+<li>开闭原则（open closed principle）</li>
+</ul>
+</blockquote>
+<a id="more"></a>
+
+
+<h2 id="单一原则"><a href="#单一原则" class="headerlink" title="单一原则"></a>单一原则</h2><ul>
+<li>原则思想：一个类只负责一件事情，且职责需清晰，各个职责的程序改动，不影响其它程序。</li>
+<li>问题由来：类T负责两个不同的职责：职责P1，职责P2。当由于职责P1需求发生改变而需要修改类T时，有可能会导致原本运行正常的职责P2功能发生故障。</li>
+<li>解决方案：遵循单一职责原则。分别建立两个类T1、T2，使T1完成职责P1功能，T2完成职责P2功能。这样，当修改类T1时，不会使职责P2发生故障风险；同理，当修改T2时，也不会使职责P1发生故障风险。</li>
+<li>优点：降低类和类的耦合，提高可读性，增加可维护性和可拓展性，降低可变性的风险。</li>
+</ul>
+<h2 id="里氏替换原则"><a href="#里氏替换原则" class="headerlink" title="里氏替换原则"></a>里氏替换原则</h2><ul>
+<li>原则思想：使用的基类可以在任何地方使用继承的子类，完美的替换基类。</li>
+<li>问题由来：有一功能P1，由类A完成。现需要将功能P1进行扩展，扩展后的功能为P，其中P由原有功能P1与新功能P2组成。新功能P由类A的子类B来完成，则子类B在完成新功能P2的同时，有可能会导致原有功能P1发生故障。</li>
+<li>解决方案：当使用继承时，遵循里氏替换原则。类B继承类A时，除添加新的方法完成新增功能P2外，尽量不要重写父类A的方法，也尽量不要重载父类A的方法。</li>
+<li>优点：增加程序的健壮性，即使增加了子类，原有的子类还可以继续运行，互不影响。</li>
+</ul>
+<h2 id="依赖倒置原则"><a href="#依赖倒置原则" class="headerlink" title="依赖倒置原则"></a>依赖倒置原则</h2><ul>
+<li>原则思想：高层次的模块不应该依赖于低层次的模块，他们都应该依赖于抽象，抽象不应该依赖于具体实现，具体实现应该依赖于抽象。</li>
+<li>问题由来：类A直接依赖类B，假如要将类A改为依赖类C，则必须通过修改类A的代码来达成。这种场景下，类A一般是高层模块，负责复杂的业务逻辑；类B和类C是低层模块，负责基本的原子操作；假如修改类A，会给程序带来不必要的风险。</li>
+<li>解决方案：将类A修改为依赖接口I，类B和类C各自实现接口I，类A通过接口I间接与类B或者类C发生联系，则会大大降低修改类A的几率。</li>
+<li>优点：可以减少需求变化带来的工作量，做并行开发更加友好。</li>
+</ul>
+<h2 id="接口隔离原则"><a href="#接口隔离原则" class="headerlink" title="接口隔离原则"></a>接口隔离原则</h2><ul>
+<li>原则思想：类和类之间应该建立在最小接口的上。</li>
+<li>问题由来：类A通过接口I依赖类B，类C通过接口I依赖类D，如果接口I对于类A和类B来说不是最小接口，则类B和类D必须去实现他们不需要的方法。</li>
+<li>解决方案：将臃肿的接口I拆分为独立的几个接口，类A和类C分别与他们需要的接口建立依赖关系。也就是采用接口隔离原则。</li>
+<li>优点：提高程序的灵活度，提高内聚，减少对外交互，使得最小的接口做最多的事情。</li>
+</ul>
+<h2 id="迪米特原则（最少知道原则）"><a href="#迪米特原则（最少知道原则）" class="headerlink" title="迪米特原则（最少知道原则）"></a>迪米特原则（最少知道原则）</h2><ul>
+<li>原则思想：一个对象应当对其他对象有尽可能少地了解，简称类间解耦</li>
+<li>问题由来：类与类之间的关系越密切，耦合度越大，当一个类发生改变时，对另一个类的影响也越大。</li>
+<li>解决方案：尽量降低类与类之间的耦合，一个类尽量减少自己对其他对象的依赖，原则是低耦合，高内聚，只有使各个模块之间的耦合尽量的低，才能提高代码的复用率。<br>优点：低耦合，高内聚。</li>
+</ul>
+<h2 id="开闭原则"><a href="#开闭原则" class="headerlink" title="开闭原则"></a>开闭原则</h2><ul>
+<li>原则思想：一个软件实体如类、模块和函数应该对扩展开放，对修改关闭。</li>
+<li>问题由来：在软件的生命周期内，因为变化、升级和维护等原因需要对软件原有代码进行修改时，可能会给旧代码中引入错误，也可能会使我们不得不对整个功能进行重构，并且需要原有代码经过重新测试。</li>
+<li>解决方案：当软件需要变化时，尽量通过扩展软件实体的行为来实现变化，而不是通过修改已有的代码来实现变化。</li>
+<li>优点：单一原则告诉我们，每个类都有自己负责的职责，里氏替换原则不能破坏继承关系的体系。</li>
+</ul>
+<p><img src="https://img-blog.csdnimg.cn/20191029173357421.gif" alt="在这里插入图片描述"></p>
+]]></content>
+      <categories>
+        <category>Java设计模式</category>
+        <category>设计原则</category>
+      </categories>
+      <tags>
+        <tag>六大设计原则</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>OAuth2授权</title>
+    <url>/2020/04/21/%E8%AE%A4%E8%AF%81-%E6%8E%88%E6%9D%83-OAuth2/</url>
+    <content><![CDATA[<h1 id="1-OAuth2解决什么问题"><a href="#1-OAuth2解决什么问题" class="headerlink" title="1. OAuth2解决什么问题"></a>1. OAuth2解决什么问题</h1><p>情景：<br>小妹在QQ空间积攒了多年的照片，想挑一些照片进行打印，然后在某宝上找了一家提供在线打印网店（我们就叫它WD）。那么问题来了，照片怎么给？<br>1、自己一张张下载下来提供给WD<br>2、将自己的空间账号秘密给WD，然后告诉WD我要打印哪些照片<br>针对方案：</p>
+<ol>
+<li>一个一个下载，有几百个，眼花了……….甩手不干</li>
+<li>交出自己账号密码，还要告诉WD哪些要打印，哪些不要，但是自己有些照片不想让WD看到…..<br>然后正义的化身OAuth2来了，小手挥一挥，立马解决了小妹的烦恼，预知怎么解决，请看下文↓<a id="more"></a>
+
+</li>
+</ol>
+<h1 id="2-OAuth2简介"><a href="#2-OAuth2简介" class="headerlink" title="2. OAuth2简介"></a>2. OAuth2简介</h1><p>总的来说，OAuth2是一个<strong>开放授权的标准</strong>，该标准允许用户（小妹）让第三方应用（WD）访问该用户在某服务的<strong>特定私密资源</strong>（空间中小妹需要打印的照片），而在无需提供用户名和密码，且采取灵活设置令牌（Access Token）有效期可以让用户（小妹）对第三方应用（WD）授权或者回收权限。</p>
+<p>OAuth2是OAuth协议的下一个版本，但是不向下兼容OAuth1.0，因为传统Web开发登录认证一般都是基于Session，但前后端分离架构或者跨平台（Android、IOS、微信小程序）不支持Cookie，使用极其不方便，应用不广，所以使用OAuth2授权能解决。</p>
+<h2 id="2-1-OAuth2的四个重要角色"><a href="#2-1-OAuth2的四个重要角色" class="headerlink" title="2.1 OAuth2的四个重要角色"></a>2.1 OAuth2的四个重要角色</h2><p>OAuth2的完整授权流程中有四个重要角色参与进来：</p>
+<p> 1.Resource Owner：资源拥护者，上面例子的小妹<br> 2. Resource Server：资源服务器，上面例子的QQ空间，它是小妹想要分享照片给WD的提供方<br> 3. Client：第三方应用客户端，上面例子的WD，代指仁和可以消费资源服务器的第三方应用<br> 4. Authorization Server：授权服务器，管理Resource Owner、Resource Server、Client三角关系的中间层。</p>
+<p> OAuth2解决问题的关键在于使用Authorization server提供一个访问凭据给Client，使得Client可以在不知道Resource owner在Resource server上用户名和密码的情况下消费Resource Owner的受保护的资源。</p>
+<h1 id="3-部署OAuth2需要完成的工作"><a href="#3-部署OAuth2需要完成的工作" class="headerlink" title="3. 部署OAuth2需要完成的工作"></a>3. 部署OAuth2需要完成的工作</h1><h2 id="3-1-作为Resource-server"><a href="#3-1-作为Resource-server" class="headerlink" title="3.1 作为Resource server"></a>3.1 作为Resource server</h2><p>在一般情况下，Resource server提供Authorization server服务，主要提供两类接口：</p>
+<p> 1.授权接口：接受Client的授权请求，引导用户到Resource server完成登录授权的过程<br> 2. 获取访问令牌接口：使用授权接口提供的许可凭据来颁发Resource owner（）的访问令牌给Client，或者由Client更新过期的访问令牌</p>
+<p> 除此之外，还需要提供一个第三方应用程序注册管理的服务。通常情况下会为注册完成的第三方应用程序分配两个成对出现的重要参数：</p>
+<ol>
+<li>client_id：第三方应用程序的一个表示id，通常是公开的信息，用来区分哪一个第三方应用程序</li>
+<li>client_secret：第三方应用的私钥信息，这是私密信息，不允许在OAuth2流程中传递，用于安全方面的检测和加密</li>
+</ol>
+<h2 id="3-1-作为Client"><a href="#3-1-作为Client" class="headerlink" title="3.1 作为Client"></a>3.1 作为Client</h2><p>在Client取得client_id和client_secret之后。使用这些信息来发起授权请求、获取access_token请求和消费受保护的资源。</p>
+<h1 id="4-OAuth2的授权流程"><a href="#4-OAuth2的授权流程" class="headerlink" title="4. OAuth2的授权流程"></a>4. OAuth2的授权流程</h1><p>场景：<br>1、WD问QQ空间：我想要小妹的一些照片打印<br>2、QQ空间说：我要经过小妹同意，然后去问小妹是否授权给WD来拿照片打印<br>3、小妹对QQ空间说：我给WD一个临时钥匙，如果他有，你就把我照片给他<br>4、WD用小妹给的钥匙拿到了照片去打印<br><img src="https://img-blog.csdnimg.cn/20200421231353418.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3BhbmdfcGluZw==,size_16,color_FFFFFF,t_70" alt="在这里插入图片描述"><br>在上面流程中，①-④是授权的过程（参与者有小妹、WD、QQ空间），⑤-⑥是资源消费的过程（参与者有WD和QQ空间）<br>接下来分步对上图流程解释每步做了什么<br>1、WD向小妹要了个授权码，好去和管理钥匙的人（授权服务器）去要访问令牌<br>2、小妹同意并给了他授权码<br>3、WD拿着授权码到授权服务器那里去换取令牌（Access_Token）<br>4、授权服务器验证了授权码，就把访问令牌给了WD<br>5、WD又拿着访问令牌去请求放在QQ空间里面的照片<br>6、QQ空间根据访问令牌，返回了小妹的照片给WD</p>
+<p>其中很重要的一个概念就是访问令牌，它代表的信息是整个OAuth2的核心，也是①-④步骤最终要得到的信息。</p>
+<p>访问令牌表示的是网店可以在QQ空间里访问小妹<strong>特指</strong>的照片，如果要访问其他照片，那就是另一个访问令牌了。</p>
+<p>访问令牌有几个重要信息：<br>1、客户端标识（比如网店WD）<br>2、用户标识（比如小妹）<br>3、客户端能访问资源所有者的哪些资源以及相对应的权限</p>
+<p>有了这三个信息，资源服务器就可以区分是哪个第三方应用有权限访问哪个用户的哪些资源</p>
+<h1 id="5-OAuth2的4种授权模式"><a href="#5-OAuth2的4种授权模式" class="headerlink" title="5. OAuth2的4种授权模式"></a>5. OAuth2的4种授权模式</h1><p>OAuth2一共有4种授权模式，上面小妹、WD、QQ空间用的就是其中一种授权码，也是目前应用中比较常用的模式。</p>
+<ol>
+<li>授权码模式</li>
+<li>简化模式</li>
+<li>密码模式</li>
+<li>客户端模式<h2 id="5-1-授权码模式"><a href="#5-1-授权码模式" class="headerlink" title="5.1 授权码模式"></a>5.1 授权码模式</h2>这是OAuth2最常用的一种授权模式，比如微博、豆瓣、QQ等等都在用。<br>具体流程：<br>（1）Client使用浏览器（用户代理）访问Authorization server。也就是用浏览器访问一个URL，这个URL是Authorization server提供的，访问的Client需要提供（客户端标识、请求范围、本地状态、重定向URL）这些参数。<br>（2）Authorization server验证Client在（1）中传递的参数信息，如果没问题提供一个页面供Resource owner登陆，登陆成功后选择Client可以访问Resource server的哪些资源以及读写权限。<br>（3）在（2）步骤没问题后返回一个授权码（Authorization Code）给Client。<br>（4）Client拿着上（3）步骤获得的授权码（Authorization Code）和（客户端标识、重定向URL等信息）作为参数，请求Authorization server提供的获取访问令牌的URL。<br>（5）Authorization server返回访问令牌和可选的刷新令牌以及令牌有效时间等信息给Client。</li>
+</ol>
+<h3 id="5-1-1-授权请求"><a href="#5-1-1-授权请求" class="headerlink" title="5.1.1 授权请求"></a>5.1.1 授权请求</h3><p>对应（1），客户端提供以下参数请求Authorization server：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">response_type：（必选）值固定为“code”</span><br><span class="line">client_id：（必选）第三方应用的标识ID</span><br><span class="line">redirect_uri：（必选）授权成功后的重定向地址</span><br><span class="line">scope：（可选）标识授权范围</span><br><span class="line">state：（推荐）第三方应用提供的一个字符串，微信授权服务器会原样返回</span><br></pre></td></tr></table></figure>
+
+<p>请求示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">GET /authorize?response_type=code&amp;app_id=wx201800a28199&amp;state=wilson&amp;redirect_uri=https:<span class="comment">//www.aaa.com&amp;scope=user,photo HTTP/1.1</span></span><br></pre></td></tr></table></figure>
+<h3 id="5-1-2-授权请求响应"><a href="#5-1-2-授权请求响应" class="headerlink" title="5.1.2 授权请求响应"></a>5.1.2 授权请求响应</h3><p>对应步骤（3）Authorization Server会返回如下信息：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">code：授权码</span><br><span class="line">state：步骤（<span class="number">1</span>）客户端提供的state参数原样返回</span><br></pre></td></tr></table></figure>
+
+<p>响应示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">HTTP/<span class="number">1.1</span> <span class="number">302</span> Found</span><br><span class="line">Location: https:<span class="comment">//client.example.com/oauth2?code=SplxlOBeZQQYbYS6WxSbIA&amp;state=wilson</span></span><br></pre></td></tr></table></figure>
+<p>Location头部信息是步骤（1）提供的redirect_uri地址，同时携带code信息和state信息给client，这样浏览器在重定向的时候就会以GET的方式访问Client提供的redirect_uri，同时Client接收到code信息和state信息。下一步就可以请求access_token了。</p>
+<h3 id="5-1-3-访问令牌请求"><a href="#5-1-3-访问令牌请求" class="headerlink" title="5.1.3 访问令牌请求"></a>5.1.3 访问令牌请求</h3><p>对应步骤（4），客户端提供以下参数请求Authorization Server：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">grant_type：（必传）固定值为<span class="string">"authorization_code"</span></span><br><span class="line">code：（必传）值为授权响应中获取到的授权码code</span><br><span class="line">redirect_uri：（必传）必须和授权请求提供的redirect_uri一致</span><br><span class="line">app_id：（必传）必须和授权请求提供的client_id一致</span><br></pre></td></tr></table></figure>
+
+
+<p>请求示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">POST /token HTTP/<span class="number">1.1</span></span><br><span class="line">Host: server.example.com</span><br><span class="line">Content-Type: application/x-www-form-urlencoded</span><br><span class="line"></span><br><span class="line">grant_type=authorization_code&amp;code=SplxlOBeZQQYbYS6WxSbIA&amp;app_id=wx201800a28199&amp;redirect_uri=https:<span class="comment">//www.aaa.com</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="5-1-4-访问令牌请求响应"><a href="#5-1-4-访问令牌请求响应" class="headerlink" title="5.1.4 访问令牌请求响应"></a>5.1.4 访问令牌请求响应</h3><p>对应步骤（4），Authorization Server会返回如下典型的信息：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">access_token：访问令牌</span><br><span class="line">refresh_token：刷新令牌</span><br><span class="line">expires_in：过期时间</span><br></pre></td></tr></table></figure>
+
+<p>示例响应如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">HTTP/<span class="number">1.1</span> <span class="number">200</span> OK</span><br><span class="line">Content-Type: application/json;charset=UTF-<span class="number">8</span></span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">   <span class="string">"access_token"</span>:<span class="string">"2YotnFZFEjr1zCsicMWpAA"</span>,</span><br><span class="line">   <span class="string">"token_type"</span>:<span class="string">"example"</span>,</span><br><span class="line">   <span class="string">"expires_in"</span>:<span class="number">3600</span>, </span><br><span class="line">   <span class="string">"refresh_token"</span>:<span class="string">"tGzv3JOkF0XG5Qx2TlKWIA"</span>, </span><br><span class="line">   <span class="string">"example_parameter"</span>:<span class="string">"example_value"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="5-2-简化模式"><a href="#5-2-简化模式" class="headerlink" title="5.2 简化模式"></a>5.2 简化模式</h2><p>此种授权方式是授权码方式的简化版本，其中省略了颁发授权码code给第三方应用的步骤，通过一次请求授权服务器直接返回访问令牌以及刷新令牌等信息，适用于没有server服务器来接受处理授权码的第三方应用。简化模式的弊端很明显，因为没有后端，所以非常不安全，除非你对安全性要求不高，否则不建议使用。</p>
+<h3 id="5-2-1-授权请求"><a href="#5-2-1-授权请求" class="headerlink" title="5.2.1 授权请求"></a>5.2.1 授权请求</h3><p>重点区别在于response_type为“token”，而不再是“code”，客户端提供以下参数请求Authorization Server：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">response_type：（必填）此处值为 <span class="string">"token"</span></span><br><span class="line">app_id：（必传）第三方应用的表示ID</span><br><span class="line">redirect_uri：（必传）授权成功后的重定向地址</span><br><span class="line">scope：（可选）标识授权范围</span><br><span class="line">state：（推荐）第三方应用提供的一个字符串，授权服务器会原样返回</span><br></pre></td></tr></table></figure>
+<p>请求url示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">GET /authorize?response_type=token&amp;app_id=wx201800a28199&amp;state=wilson&amp;redirect_uri=https%<span class="number">3</span>A%<span class="number">2F</span>%<span class="number">2F</span>client%<span class="number">2</span>Eexample%<span class="number">2</span>Ecom%<span class="number">2F</span>oauth2&amp;scope=user,photo HTTP/<span class="number">1.1</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="5-2-2-授权请求响应"><a href="#5-2-2-授权请求响应" class="headerlink" title="5.2.2 授权请求响应"></a>5.2.2 授权请求响应</h3><p>Authorization Server会返回如下典型的信息：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">access_token： 访问令牌</span><br><span class="line">refresh_token：刷新令牌</span><br><span class="line">expire_in：过期时间</span><br></pre></td></tr></table></figure>
+<p>返回url示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">HTTP/<span class="number">1.1</span> <span class="number">302</span> Found</span><br><span class="line">Location:         </span><br><span class="line">http:<span class="comment">//client.example.com/oauth2#access_token=2YotnFZFEjr1zCsicMWpAA&amp;state=wilson&amp;expires_in=3600</span></span><br></pre></td></tr></table></figure>
+<p>注意和授权码模式的最大区别在于它是把token信息放在了url的hash部分（#后面），而不是作为参数(?后面)。这样浏览器在访问重定向的Location指定的url时，就不会把这些数据发送到服务器。而Client可以通过读取Location头信息中获取到access_token信息。</p>
+<h2 id="5-3-密码模式"><a href="#5-3-密码模式" class="headerlink" title="5.3 密码模式"></a>5.3 密码模式</h2><p>这种模式再一步简化，和授权码类型下重要的区分就是省略了授权请求和授权响应。而是Client直接使用Resource owner提供的username和password来直接请求access_token（直接发起访问令牌请求然后返回访问令牌请求响应信息）。这种模式一般适用于Resource server高度信任第三方Client的情况下。</p>
+<h3 id="5-3-1-访问令牌请求"><a href="#5-3-1-访问令牌请求" class="headerlink" title="5.3.1 访问令牌请求"></a>5.3.1 访问令牌请求</h3><p>客户端提供以下参数请求授权服务器：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">grant_type：（必填）值固定为 <span class="string">"password"</span></span><br><span class="line">user_name：（必填）微信用户登录名</span><br><span class="line">password：（必填）用户登录密码</span><br><span class="line">scope：可选 标识授权范围</span><br></pre></td></tr></table></figure>
+<p>请求示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">POST /token HTTP/<span class="number">1.1</span></span><br><span class="line">Host: server.example.com</span><br><span class="line">Content-Type: application/x-www-form-urlencoded</span><br><span class="line"></span><br><span class="line">grant_type=password&amp;username=blackheart&amp;password=<span class="number">1234</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="5-3-2-访问令牌请求响应"><a href="#5-3-2-访问令牌请求响应" class="headerlink" title="5.3.2 访问令牌请求响应"></a>5.3.2 访问令牌请求响应</h3><p>响应示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">HTTP/<span class="number">1.1</span> <span class="number">200</span> OK</span><br><span class="line">Content-Type: application/json;charset=UTF-<span class="number">8</span></span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">   <span class="string">"access_token"</span>:<span class="string">"2YotnFZFEjr1zCsicMWpAA"</span>,</span><br><span class="line">   <span class="string">"token_type"</span>:<span class="string">"example"</span>,</span><br><span class="line">   <span class="string">"expires_in"</span>:<span class="number">3600</span>, </span><br><span class="line">   <span class="string">"refresh_token"</span>:<span class="string">"tGzv3JOkF0XG5Qx2TlKWIA"</span>, </span><br><span class="line">   <span class="string">"example_parameter"</span>:<span class="string">"example_value"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="5-4-客户端模式"><a href="#5-4-客户端模式" class="headerlink" title="5.4 客户端模式"></a>5.4 客户端模式</h2><p>这种类型就更简化了，Client直接已自己的名义而不是Resource owner的名义去要求访问Resource server的一些受保护资源。</p>
+<h3 id="5-4-1-授权请求（以自己的名义）"><a href="#5-4-1-授权请求（以自己的名义）" class="headerlink" title="5.4.1 授权请求（以自己的名义）"></a>5.4.1 授权请求（以自己的名义）</h3><p>客户端提供以下参数请求Authorization Server：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">grant_type：（必填）值固定为 <span class="string">"client_credentials"</span></span><br><span class="line">scope：可选 标识授权范围</span><br></pre></td></tr></table></figure>
+<p>请求示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">POST /token HTTP/<span class="number">1.1</span></span><br><span class="line">Host: server.example.com</span><br><span class="line">Content-Type: application/x-www-form-urlencoded</span><br><span class="line"></span><br><span class="line">grant_type=client_credentials</span><br></pre></td></tr></table></figure>
+<h3 id="5-4-2-授权请求响应"><a href="#5-4-2-授权请求响应" class="headerlink" title="5.4.2 授权请求响应"></a>5.4.2 授权请求响应</h3><p>响应示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">HTTP/<span class="number">1.1</span> <span class="number">200</span> OK</span><br><span class="line">Content-Type: application/json;charset=UTF-<span class="number">8</span></span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">   <span class="string">"access_token"</span>:<span class="string">"2YotnFZFEjr1zCsicMWpAA"</span>,</span><br><span class="line">   <span class="string">"token_type"</span>:<span class="string">"example"</span>,</span><br><span class="line">   <span class="string">"expires_in"</span>:<span class="number">3600</span>, </span><br><span class="line">   <span class="string">"refresh_token"</span>:<span class="string">"tGzv3JOkF0XG5Qx2TlKWIA"</span>, </span><br><span class="line">   <span class="string">"example_parameter"</span>:<span class="string">"example_value"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="6-OAuth2刷新令牌"><a href="#6-OAuth2刷新令牌" class="headerlink" title="6. OAuth2刷新令牌"></a>6. OAuth2刷新令牌</h1><p>在得到访问令牌（access_token）时，一般会提供一个过期时间和刷新令牌。以便在访问令牌过期失效的时候可以由客户端自动获取新的访问令牌，而不是让用户再次登陆授权。</p>
+<h2 id="6-1-1-刷新访问令牌请求"><a href="#6-1-1-刷新访问令牌请求" class="headerlink" title="6.1.1 刷新访问令牌请求"></a>6.1.1 刷新访问令牌请求</h2><p>客户端需要提供给Authorization Server的参数：<br>1、grant_type：必选。固定值“refresh_token”。<br>2、refresh_token：必选。客户端得到access_token的同时拿到的刷新令牌。<br>请求示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">POST /token HTTP/<span class="number">1.1</span></span><br><span class="line"> Host: server.example.com</span><br><span class="line"></span><br><span class="line"> grant_type=refresh_token&amp;refresh_token=tGzv3JOkF0XG5Qx2TlKWIA</span><br></pre></td></tr></table></figure>
+<h2 id="6-1-2-刷新访问令牌请求响应"><a href="#6-1-2-刷新访问令牌请求响应" class="headerlink" title="6.1.2 刷新访问令牌请求响应"></a>6.1.2 刷新访问令牌请求响应</h2><p>请求响应示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">HTTP/<span class="number">1.1</span> <span class="number">200</span> OK</span><br><span class="line">Content-Type: application/json;charset=UTF-<span class="number">8</span></span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">   <span class="string">"access_token"</span>:<span class="string">"2YotnFZFEjr1zCsicMWpAA"</span>,</span><br><span class="line">   <span class="string">"token_type"</span>:<span class="string">"example"</span>,</span><br><span class="line">   <span class="string">"expires_in"</span>:<span class="number">3600</span>, </span><br><span class="line">   <span class="string">"refresh_token"</span>:<span class="string">"tGzv3JOkF0XG5Qx2TlKWIA"</span>, </span><br><span class="line">   <span class="string">"example_parameter"</span>:<span class="string">"example_value"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="7-Token的传递方式"><a href="#7-Token的传递方式" class="headerlink" title="7. Token的传递方式"></a>7. Token的传递方式</h1><p>主要有三种方式可作为参考：</p>
+<p> 1.URI追加access_token参数<br> 2. 请求头放置access_token参数<br> 3. 请求体添加access_token参数</p>
+<h2 id="7-1-URI追加access-token参数"><a href="#7-1-URI追加access-token参数" class="headerlink" title="7.1 URI追加access_token参数"></a>7.1 URI追加access_token参数</h2><p>在我们请求受保护的资源的Url后面追加一个access_token的参数即可。另外还有一点要求，就是Client需要设置以下Request Header的Cache-Control:no-store，用来阻止access_token不会被Web中间件给log下来，属于安全防护方面的一个考虑。<br>代码示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">GET /resource?access_token=mF_9.B5f-<span class="number">4.1</span>JqM HTTP/<span class="number">1.1</span></span><br><span class="line"></span><br><span class="line">Host: server.example.com</span><br></pre></td></tr></table></figure>
+
+<h2 id="7-2-URI追加access-token参数"><a href="#7-2-URI追加access-token参数" class="headerlink" title="7.2 URI追加access_token参数"></a>7.2 URI追加access_token参数</h2><p> 因为在HTTP应用层协议中，专门有定义一个授权使用的Request Header，所以也可以使用这种方式<br> 代码示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">GET /resource HTTP/<span class="number">1.1</span></span><br><span class="line">Host: server.example.com</span><br><span class="line">Authorization: Bearer mF_9.B5f-<span class="number">4.1</span>JqM</span><br></pre></td></tr></table></figure>
+<p>其中”Bearer “是固定的在access_token前面的头部信息。</p>
+<h2 id="7-3-URI追加access-token参数"><a href="#7-3-URI追加access-token参数" class="headerlink" title="7.3 URI追加access_token参数"></a>7.3 URI追加access_token参数</h2><p>使用Request Body这种方式，有一个额外的要求，就是Request Header的”Content-Type”必须是固定的“application/x-www-form-urlencoded”，此外还有一个限制就是不可以使用GET访问，这个好理解，毕竟GET请求是不能携带Request Body的。<br> 代码示例如下：</p>
+<figure class="highlight java"><table><tr><td class="code"><pre><span class="line">POST /resource HTTP/<span class="number">1.1</span></span><br><span class="line">Host: server.example.com</span><br><span class="line">Content-Type: application/x-www-form-urlencoded</span><br><span class="line"></span><br><span class="line">access_token=mF_9.B5f-<span class="number">4.1</span>JqM</span><br></pre></td></tr></table></figure>
+
+<h1 id="8-总结-amp-参考"><a href="#8-总结-amp-参考" class="headerlink" title="8. 总结 &amp; 参考"></a>8. 总结 &amp; 参考</h1><p>OAuth2是一种授权标准框架，用来解决的是第三方服务在无需用户提供账号密码的情况下访问用户的私有资源的一套流程规范。与其配套的还有其他相关的规范，都可以到<a href="https://oauth.net/2/" target="_blank" rel="noopener">https://oauth.net/2/</a>去延伸阅读和了解。<br>相关参考：<br><a href="https://oauth.net/2/" target="_blank" rel="noopener">https://oauth.net/2/</a><br><a href="https://www.oauth.com/" target="_blank" rel="noopener">https://www.oauth.com/</a><br><a href="https://www.cnblogs.com/linianhui/p/oauth2-authorization.html" target="_blank" rel="noopener">https://www.cnblogs.com/linianhui/p/oauth2-authorization.html</a><br><a href="http://www.javaboy.org/" target="_blank" rel="noopener">http://www.javaboy.org/</a><br><a href="http://www.ruanyifeng.com/blog/archives.html" target="_blank" rel="noopener">http://www.ruanyifeng.com/blog/archives.html</a></p>
+<p><img src="https://img-blog.csdnimg.cn/20191029173357421.gif" alt="在这里插入图片描述"></p>
+]]></content>
+      <categories>
+        <category>认证&amp;授权</category>
+        <category>OAuth2授权</category>
+      </categories>
+      <tags>
+        <tag>OAuth2</tag>
+      </tags>
+  </entry>
+</search>
